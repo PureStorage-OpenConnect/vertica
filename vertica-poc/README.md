@@ -1,5 +1,5 @@
 # Vertica PoC
-This repository hosts code for quickly building out Vertica PoC environments for demos and tests. The focus is on Vertica Eon mode, with the S3 communal storage placed on Pure Storage FlashBlade.
+This directory hosts code for quickly building out Vertica PoC environments for demos and tests. The focus is on Vertica Eon mode, with the S3 communal storage placed on Pure Storage FlashBlade.
 
 -   The core of the work is done by Ansible from the Management Console instance/host. Ansible isn't necessary on the laptop or bastion host used to access the PoC environment (but may be helpful for setup and troubleshooting).
 -   The playbooks and notes assume CentOS7 or Amazon Linux 2 for the hosts used to create and run the Vertica cluster.
@@ -19,8 +19,7 @@ For the PoC, we'll need **at least four instances or hosts**:
 
 
 ## On a Laptop or Bastion Host
-This part should not be necessary for environments where root login to the hosts is already enabled. For AWS and Outposts, root
-login is disabled on new instances. The following steps should re-enable it.
+This part should not be necessary for environments where root login to the hosts is already enabled. For AWS and Outposts, root login is disabled on new instances. The following steps should re-enable it.
 
 1.  Edit `/etc/hosts` and set the correct IP addresses for the management console (MC) and cluster node instances.
 2.  Edit `~/.ssh/config` and set the user for the PoC hosts to be whatever the correct user is for those instances. (For Outposts/AWS, it's likely either `ec2-user` or `dbadmin` depending on AMI used.) Make sure a copy of the correct key is in `~/.ssh/` and referenced in the `~/.ssh/config` entry. An example entry would look something like this:
@@ -36,8 +35,8 @@ Host outposts-mc outposts-node*
 ```
 3.  Clone this repository onto your laptop or jumpbox, and modify the `outposts-openroot.sh` script.
 ```shell
-   sudo yum install -y git && git clone https://github.com/microslav/vertica-poc.git
-   cd vertica-poc
+   sudo yum install -y git && git clone https://github.com/PureStorage-OpenConnect/vertica.git
+   cd ./vertica/vertica-poc
    vim ./outposts-openroot.sh
 ```   
 4.  Set the following variables to match your environment:  
@@ -54,7 +53,7 @@ Host outposts-mc outposts-node*
   MY_MC="outposts-mc"
   scp vertica-*.x86_64.RHEL6.rpm ${MY_MC}:/tmp/
   scp vertica-console-*.x86_64.RHEL6.rpm ${MY_MC}:/tmp/
-  scp rapidfile-*-Linux.rpm ${MY_MC}:/tmp/ # optional RapidFile Toolkit to accelerate high file count operations from Pure
+  scp rapidfile-*-Linux.rpm ${MY_MC}:/tmp/  # optional RapidFile Toolkit to accelerate high file count operations from Pure
   scp tpcds_dist.tgz ${MY_MC}:/tmp/         # optional distributable for TPC-DS adapted for Vertica Eon mode and PoC
 ```
 8.  Copy the SSH keys to the MC node root Account
@@ -68,10 +67,10 @@ Host outposts-mc outposts-node*
 1.  Connect to the MC instance via `ssh`
 2.  Become `root` if not already connected as root: `sudo su - ; cd`
 2.  Make sure git is installed: `yum install -y git`
-3.  Clone this repository onto the instance: `git clone https://github.com/microslav/vertica-poc.git`
+3.  Clone this repository onto the instance: `git clone https://github.com/PureStorage-OpenConnect/vertica.git`
 4.  Copy the files to their proper destinations:
 ```shell
-   cd vertica-poc
+   cd ./vertica/vertica-poc
    cp /tmp/vertica-*.x86_64.RHEL6.rpm roles/vertica-node/files/
    cp /tmp/vertica-console-*.x86_64.RHEL6.rpm roles/mc/files/
    cp /tmp/rapidfile-*-Linux.rpm roles/vertica-node/files/
@@ -122,8 +121,7 @@ The following variables help customize the script for the PoC platform, hosts, a
 -   **PUBL_NDEV**="eth0" - Public network interface for management access to the MC instance. If this is different from the private network interface, it will be configured as a NAT gateway for the other nodes to use for access to the outside world (e.g., downloading new packages). This setup is for more secure PoC environments where only the MC is whitelisted for VPN access.
 -   **DATA_NDEV**="eth0" - Data network interface for storage access. More common in production environments where the FlashBlade is on a separate storage network.
 -   **EXTRAS_URI**="<https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm>" – URI for the package that enables access to Extras packages for the OS distribution used for the PoC. Sometimes different OS flavors have different syntax for enabling extra repositories. This should work across a range of flavors.
--   **VDB_DEPOT_SIZE**="512G" – Depot size per node. This should be about +2x host memory, but not more than
-60-80% of the host's `/home` partion size. Minimum size is 32GB. You can use {K|M|G|T} suffix for size. For Outposts, there is a separate script that can be used to configure the ephemeral instance storage as the Depot location.
+-   **VDB_DEPOT_SIZE**="512G" – Depot size per node. This should be about +2x host memory, but not more than 60-80% of the host's `/home` partion size. Minimum size is 32GB. You can use {K|M|G|T} suffix for size. For AWS and Outposts, there is a [separate script that can be used to configure the ephemeral instance storage](https://github.com/PureStorage-OpenConnect/vertica/blob/main/vertica-poc/outposts-ephemeral.sh) as the Depot location.
 -   **OS_USERNAME**="ec2-user" – Name of non-root user for the OS (e.g., `dbadmin` for Vertica AMI, `ec2-user` for AWS Linux AMI). This is used to enable `root` access on the nodes in case it wasn't enabled from the laptop in an earlier step.
 -   **DBUSER**="dbadmin" - Name of the Vertica database management user. Shouldn't need to be changed.
 -   **LAB_IP_SUFFIX**="1" - The internal gateway IP address suffix on the private network. It's assigned to the MC host as a NAT gateway to the outside for other PoC hosts. If there is no separate private network, use the existing gateway suffix for the public network. Warning: this assumes a /24 network and the code might need to adjusted for wider networks.
@@ -166,7 +164,8 @@ The playbook is set up with a few options to control the flow of execution:
 
 # Run the Playbook
 Once everything has been prepared, the hard part should be over. There are now three main steps to configuring getting a working Vertica PoC running (each covered in more detail below):
-1.   Source the `vertica_poc_prep.sh` script
+1.   **Source** (don't try to execute) the `vertica_poc_prep.sh` script
+2.   Validate that the variables set in the [all.yml](https://github.com/PureStorage-OpenConnect/vertica/blob/main/vertica-poc/group_vars/all.yml) file for the `group_vars` are accurate and meaningful for your environment.
 2.   Run the Ansible Playbook
 3.   Configure access to the Vertica Management Console GUI
 
@@ -175,13 +174,13 @@ As a best practice, set aside a window (terminal tab, `tmux` window, etc.) for j
 ## Source the Prep Script
 To get everything set up on the MC host, log in and `source` the `vertica_poc_prep.sh` file (don't run as a script):
 ```shell
-cd ~/vertica-poc/
+cd ~/vertica/vertica-poc/
 source vertica_poc_prep.sh
 ```
 
 You'll see a bunch of messages generated on the terminal as various phases of the setup run. The script does the following:
 1.   Defines a bunch of environment variables that will be used by the script and Ansible playbooks
-2.   Installs some basic packages needed by the script, including a recent version of Ansible via Python `pip`. (The 2.10 version of Ansible is needed by the FlashBlade Ansible Galaxy collection, and earlier versions of Ansible don't seem to work as reliably.)
+2.   Installs some basic packages needed by the script, including a recent version of Ansible via Python `pip`. (The 2.10+ version of Ansible is needed by the FlashBlade Ansible Galaxy collection, and earlier versions of Ansible don't seem to work as reliably.)
 3.   Sets up SSH keys and config file to use for Ansible and other management tasks
 4.   Sets up `firewalld` and configures it for management access and DNS. If the private interface is different from the public one, it also configures the MC host as a NAT gateway to the public network.
 5.   Sets up DNS service with `dnsmasq` to provide address translation to the PoC hosts. This simplifies things and also helps when the hosts are on an isolated private network.
@@ -195,6 +194,16 @@ You'll see a bunch of messages generated on the terminal as various phases of th
 
 If something doesn't seem to be working correctly, uncomment the `set -x` and `set +x` at the top and bottom of the script to view the execution messages. It should be safe to source the script repeatedly, but it's not really idempotent (e.g., duplicate entries in `/etc/hosts`, etc.).
 
+## Validate the Variables in `all.yml`
+Most of the variables set in the file shouldn't need to be changed. However, the file encodes things like Golang version, `s5cmd` version, VMart row counts, etc. It's a good idea to review the Ansible variables set in this file prior to running the playbook to make sure they are still relevant. In particular, these variables might make sense to update:
+- `go_ver` – Golang version to install if not installed already
+- `s5cmd_ver` — Version of the s5cmd tool to install
+- `rft_pkg` — RPM for the RapidFile Toolkit
+- `vertica_pkg` — RPM for the Vertica package
+- `console_pkg` — RPM for the Vertica Management Console package
+- `vdb_shards_per_node` — Shards per node to create
+- `vmart_*` – Various settings for the example VMart database
+
 ## Run the Ansible Playbook
 Once the prep script completes successfully, the next step is to run the playbook:
 `ansible-playbook -i hosts.ini site.yml`
@@ -206,10 +215,10 @@ The last role sets up the host is as a Management Console server. If the PoC is 
 ## Configure Access to the Vertica Management Console GUI
 Once you can browse to MC GUI, there are a few necessary initial steps to gain access:
 1.   Accept the terms and conditions on the first screen
-2.   Set the password for the MC administrator (`dbadmin` by default). The default `dbadmin` password set up by the playbook is `vertica1$`, so using that here will help keep things consistent. Set the UNIX group name for the administrator to be `verticadba`.
+2.   Set the password for the MC administrator (`dbadmin` by default). The default `dbadmin` password set up by the playbook is `vertica1$`, so using `Vertica1$` here will help keep things consistent while meeting password complexity rules for the MC. Set the UNIX group name for the administrator to be `verticadba`.
 3.   Select using the Management Console for authentication. (Using LDAP is an option but way beyond the scope of this README.)
 4.   Click "Finish". It'll take several minutes to configure everything and make the Management Console available. Refresh the browser after a few minutes if it still doesn't seem to be back.
-5.   Once you see the authentication box, log in with the username and password you configured in the previous steps (e.g., `dbadmin/vertica1$`).
+5.   Once you see the authentication box, log in with the username and password you configured in the previous steps (e.g., `dbadmin/Vertica1$`).
 6.   You'll see an initial login dialog with pointers to Vertica documentation. Review the docs if desired, and dismiss the dialog.
 7.   On the main screen, click the "Import database" button to import the new database into the Management Console.
 8.   Put in the IP address of the first Vertica node in the cluster (`vertica-node001`) and click "Next".
