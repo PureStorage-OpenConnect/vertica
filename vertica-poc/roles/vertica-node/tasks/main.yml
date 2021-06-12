@@ -366,7 +366,13 @@
         group: "{{ dbgroup }}"
     - name: Gather root drive IO performance
       shell:
-        cmd: "/opt/vertica/bin/vioperf --duration={{ vperf_io_dur }}s --log-interval={{ vperf_io_logdur }}s --thread-count={{ ansible_processor_vcpus }} {{ vperf_io_locpath }} >/tmp/vioperf_{{ hosts_group }}_LOC_{{ inventory_hostname_short }}.out 2>&\1"
+        cmd: >-
+          /opt/vertica/bin/vioperf
+          --duration={{ vperf_io_dur }}s
+          --log-interval={{ vperf_io_logdur }}s
+          --thread-count={{ ansible_processor_vcpus }}
+          {{ vperf_io_locpath }}
+          >/tmp/vioperf_{{ hosts_group }}_LOC_{{ inventory_hostname_short }}.out 2>&\1
       become: yes
       become_user: "{{ dbuser }}"
       become_method: su
@@ -377,7 +383,13 @@
         flat: yes
     - name: Gather FlashBlade NFS IO performance
       shell:
-        cmd: "/opt/vertica/bin/vioperf --duration={{ vperf_io_dur }}s --log-interval={{ vperf_io_logdur }}s --thread-count={{ ansible_processor_vcpus }} {{ vperf_io_nfspath }} >/tmp/vioperf_{{ hosts_group }}_NFS_{{ inventory_hostname_short }}.out 2>&\1"
+        cmd: >-
+          /opt/vertica/bin/vioperf
+          --duration={{ vperf_io_dur }}s
+          --log-interval={{ vperf_io_logdur }}s
+          --thread-count={{ ansible_processor_vcpus }}
+          {{ vperf_io_nfspath }}
+          >/tmp/vioperf_{{ hosts_group }}_NFS_{{ inventory_hostname_short }}.out 2>&\1
       become: yes
       become_user: "{{ dbuser }}"
       become_method: su
