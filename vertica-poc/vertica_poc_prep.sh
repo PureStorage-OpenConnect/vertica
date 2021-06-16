@@ -449,8 +449,10 @@ ansible all -m service -a "name=ntpd state=stopped"
 if [ "${PRIV_NDEV}" != "${PUBL_NDEV}" ]; then
     ansible vertica_nodes -o -m copy  -a "src=/tmp/ntp.conf dest=/etc/ntp.conf"
 fi
-ansible all -o -m shell -a 'ntpd -gq'
-ansible all -m service -a "name=ntpd state=started"
+ansible mc -o -m shell -a 'ntpd -gq'                          # Sync ntpd on MC first in case using it as private NTP server
+ansible mc -m service -a "name=ntpd state=started"            # Start ntpd on MC first in case using it as private NTP server
+ansible vertica_nodes -o -m shell -a 'ntpd -gq'               # Sync ntpd on Vertica nodes; get time from MC if PRIV != PUBL
+ansible vertica_nodes -m service -a "name=ntpd state=started" # Start ntpd on Vertica nodes; get time from MC if PRIV != PUBL
 sleep 10
 ansible all -m shell -a 'ntpstat'
 ansible all -m shell -a 'timedatectl status | grep "NTP synchronized:"'
