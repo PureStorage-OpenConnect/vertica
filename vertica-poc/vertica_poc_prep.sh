@@ -156,8 +156,7 @@ source ${PWD}/${VENV}/bin/activate
 pip3 install --upgrade ansible selinux
 
 ### Save the Environment Variables in the Activate scripts
-echo "" >> ${PWD}/${VENV}/bin/activate
-echo "### Exported environment variables from Vertica PoC script" >> ${PWD}/${VENV}/bin/activate
+printf "\n\n###\n### Functions and Env variables from Vertica PoC script\n###\n" >> ${PWD}/${VENV}/bin/activate
 declare -f dev_ip >> ${PWD}/${VENV}/bin/activate
 declare -f dev_cidr >> ${PWD}/${VENV}/bin/activate
 declare -f dev_conn >> ${PWD}/${VENV}/bin/activate
