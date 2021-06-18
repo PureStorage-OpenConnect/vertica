@@ -155,6 +155,14 @@ pip3 install --upgrade selinux  # Also needed outside venv on AWS for some reaso
 source ${PWD}/${VENV}/bin/activate
 pip3 install --upgrade ansible selinux
 
+### Save the Environment Variables in the Activate scripts
+echo "" >> ${PWD}/${VENV}/bin/activate
+echo "### Exported environment variables from Vertica PoC script" >> ${PWD}/${VENV}/bin/activate
+declare -f dev_ip >> ${PWD}/${VENV}/bin/activate
+declare -f dev_cidr >> ${PWD}/${VENV}/bin/activate
+declare -f dev_conn >> ${PWD}/${VENV}/bin/activate
+grep -E '^export ' ${BASH_SOURCE[0]} >> ${PWD}/${VENV}/bin/activate
+
 ### Set up SSH keys for login and Ansible
 export PUBPATH="${HOME}/.ssh/${KEYNAME}.pub"
 if [ "${IS_AWS_UUID^^}" == "EC2" ]; then
