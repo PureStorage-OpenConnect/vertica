@@ -24,10 +24,10 @@
     state: present
     virtualenv: "{{ lookup('env','VIRTUAL_ENV') }}"
 
-- name: Collect FlashBlade configuration info
+- name: Collect FlashBlade basic info as a test
   purefb_info:
     gather_subset:
-      - config
+      - minimum
     fb_url: "{{ fb_mgmt }}"
     api_token: "{{ fb_api_token }}"
   ignore_errors: yes
@@ -36,7 +36,7 @@
 - name: Show FlashBlade configuration information
   debug:
     msg:
-      - "{{ blade_info['purefb_info']['config'] }}"
+      - "{{ blade_info['purefb_info']['default'] }}"
 
 - name: Collect Bucket info
   purefb_info:
