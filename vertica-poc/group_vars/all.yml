@@ -168,7 +168,7 @@ vdb_tune_db_cmd: |
 
 ### VMart Example Demo Info
 vmart_runsteps: "{{ lookup('env','VA_RUN_VMART')|bool }}"
-vmart_file_cnt: 100
+vmart_file_cnt: 10000
 vmart_sto_s_fact: 1300000000
 vmart_sto_o_fact: 130000000
 vmart_prod_dim: 13000

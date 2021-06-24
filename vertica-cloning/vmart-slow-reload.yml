@@ -1,0 +1,166 @@
+######################################################################
+#
+# Playbook to SLOOOOOWLY load a VMart dataset for testing
+#
+# Assumptions:
+#   1. Ansible user is root, and "become" needed for other users. First
+#      need to enable root access with "sudo vi /root/.ssh/authorized_keys"
+#      if needed (e.g., on Outposts).
+#   2. The source data is accessible on all the nodes. Either the
+#      directory is mounted, or s3:// resolves to the correct endpoint.
+#
+######################################################################
+---
+- name: Set up and run FlashBlade demo on Outposts
+  hosts: src_cluster
+  gather_facts: yes
+  vars_files:
+    - "{{ playbook_dir }}/vmart_vars.yml"
+  tasks:
+    - name: Check before deleting existing tables
+      pause:
+        prompt: |
+          The next step will delete existing VMart tables and
+          recreate empty tables. If that is desired, enter Ctrl-C,C
+          Otherwise, enter Ctrl-C,A
+
+    - name: Drop and recreate empty VMart tables
+      shell:
+        cmd: |
+          vsql -ie -f ./{{ vmart_drop_sql }}
+          vsql -ie -f ./{{ vmart_define_sql }}
+        chdir: "{{ vmart_code_dir }}"
+      run_once: yes
+      become: yes
+      become_user: "{{ dbuser }}"
+      become_method: su
+      register: out
+    - debug: var=out
+      run_once: yes
+
+    - name: Check if the VMart data exists before generating it
+      shell:
+        cmd: "du -sb ."
+        chdir: "{{ vmart_dest_dir }}"
+      run_once: yes
+      become: yes
+      become_user: "{{ dbuser }}"
+      become_method: su
+      register: out
+    - set_fact:
+        dest_dir_bytes: "{{ out.stdout_lines[0].split()[0]|int }}"
+        close_enough: (dest_dir_bytes > vmart_swag_bytes)|bool
+    - debug:
+        msg: |
+          Existing VMart destination directory holds {{ dest_dir_bytes }} bytes;
+          Target VMart data size is {{ vmart_targ_bytes }} bytes.
+      run_once: yes
+    - pause:
+        prompt: |
+          The existing VMart destination directory seems to already
+          have appoximately the right amount of data. Are you sure
+          that you want to regenerate this data? (yes/no)
+      register: confirm_recreate
+      when: close_enough
+
+    - name: (Re)generate VMart Data
+      block:
+        - name: Recreate VMart destination directory
+          shell:
+            cmd: |
+              rm -rf {{ vmart_dest_dir }}
+              mkdir {{ vmart_dest_dir }}
+          register: out
+        - debug: var=out
+        - name: Run the VMart data generator script
+          shell:
+            cmd: "{{ vmart_gen_cmd }}"
+            chdir: "{{ vmart_code_dir }}"
+          register: out
+        - debug: var=out
+        - name: Check VMart directory size after generating the data
+          shell:
+            cmd: "du -sb ."
+            chdir: "{{ vmart_dest_dir }}"
+          register: out
+        - set_fact:
+            dest_dir_bytes: "{{ out.stdout_lines[0].split()[0]|int }}"
+        - debug:
+            msg: |
+              Current VMart destination directory holds {{ dest_dir_bytes }} bytes;
+              Target VMart data size is {{ vmart_targ_bytes }} bytes.
+      when: (not close_enough) or (confirm_recreate.user_input|bool)
+      become: yes
+      become_user: "{{ dbuser }}"
+      become_method: su
+      run_once: yes
+
+    - name: Load all the Dimension Tables Sequentially
+      shell:
+        cmd: "vsql -ie -c \"COPY {{ item.schema }}.{{ item.name }} FROM '{{ vmart_dest_dir }}/{{ item.name }}.tbl' DELIMITER '|' NULL '' DIRECT;\""
+        chdir: "{{ vmart_dest_dir }}"
+      loop:
+        "{{ vmart_dim_tables }}"
+      become: yes
+      become_user: "{{ dbuser }}"
+      become_method: su
+      run_once: yes
+
+    - name: Create and Run Parallel Load Script
+      block:
+        - name: Generate the load script
+          copy:
+            content: "{{ loadtbl_sh }}"
+            dest: "{{ vmart_dest_dir }}/vmart_slow_parallel_load.sh"
+            mode: '0755'
+          register: out
+        - debug: var=out
+        - name: Run the Slow Load script
+          shell:
+            cmd: "./vmart_slow_parallel_load.sh"
+            chdir: "{{ vmart_dest_dir }}"
+          register: out
+        - debug: var=out
+      become: yes
+      become_user: "{{ dbuser }}"
+      become_method: su
+      run_once: yes
+
+    - name: Get various Data Sizes for VMart after Load
+      block:
+        - name: Get communal storage path from database
+          shell:
+            cmd: "vsql -tc \"select location_path from storage_locations where node_name is null and location_path like 's3://%';\" | sed -e '/^$/d' -e 's/ //g'"
+          register: out
+        - set_fact:
+            vmart_s3_path: "{{ out.stdout_lines[0] }}"
+        - name: Get AWS Endpoint from database
+          shell:
+            cmd: "vsql -tc \"select get_config_parameter('AWSEndpoint');\" | sed -e '/^$/d' -e 's/ //g'"
+          register: out
+        - set_fact:
+            vmart_s3_endpoint: "{{ out.stdout_lines[0] }}"
+        - debug: msg="VMart database S3 endpoint is {{ vmart_s3_endpoint }} and path is {{ vmart_s3_path }}/"
+        - name: Get S3 usage for the database path
+          shell:
+            cmd: "s5cmd --endpoint-url={{ vmart_s3_endpoint }} du '{{ vmart_s3_path }}/*'"
+          register: out
+        - set_fact:
+            s3_bytes: "{{ out.stdout_lines[0].split()[0] }}"
+            s3_objs: "{{ out.stdout_lines[0].split()[3] }}"
+        - debug: msg="Found {{ s3_bytes }} bytes in {{ s3_objs }} objects at {{ vmart_s3_path }}"
+        - name: Display large projections from database
+          shell:
+            cmd: "vsql -c \"{{ vmart_usage }}\" | sed -e '/^$/d'"
+          register: out
+        - debug: var=out.stdout_lines
+        - name: Display count of rows for {{ canary_tbl }}
+          shell:
+            cmd: "vsql -tc \"{{ count_star }}\" | sed -e '/^$/d' -e 's/ //g'"
+          register: out
+        - debug: msg="Table {{ canary_tbl }} has {{ out.stdout_lines[0] }} rows."
+      become: yes
+      become_user: "{{ dbuser }}"
+      become_method: su
+      run_once: yes
+...
