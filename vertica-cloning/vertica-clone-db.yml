@@ -22,7 +22,7 @@
         auth_path: "{{ lookup('env','DST_CLONE_AUTH') }}"
         run_as: "{{ lookup('env','RUN_AS') }}"
         vs_usage: >-
-          select proj, ROS_num, rows_mln, GB from (
+          select proj, ROS_num, rows_mln::dec(10,2), GB::dec(10,2) from (
             select projection_name proj, sum(ros_count) ROS_num, round(sum(row_count)/10^6,2) as rows_mln, round(sum(used_bytes)/1024^3,2) as GB
             from projection_storage where 1=1 group by 1
           ) as x where GB > 0 order by GB desc limit 10;

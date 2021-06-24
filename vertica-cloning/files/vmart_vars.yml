@@ -95,10 +95,9 @@ loadtbl_sh: |
     sleep {{ loadtbl_sleep }}
   done
 vmart_usage: >-
-  select proj, ROS_num, rows_mln, MiB from (
+  select proj, ROS_num, rows_mln::dec(10,2), MiB::dec(10,2) from (
     select projection_name proj, sum(ros_count) ROS_num, round(sum(row_count)/10^6,2) as rows_mln, round(sum(used_bytes)/1024^2,2) as MiB
     from projection_storage where 1=1 group by 1
   ) as x where MiB > 0 order by MiB desc limit 10;
-###  select proj, ROS_num, rows_mln, MiB from (select projection_name proj, sum(ros_count) ROS_num, round(sum(row_count)/10^6,2) as rows_mln, round(sum(used_bytes)/1024^2,2) as MiB from projection_storage where 1=1 group by 1) as x where MiB > 0 order by MiB desc limit 10;
 canary_tbl: "store.Store_Sales_Fact"
 count_star: "select count(*) from {{ canary_tbl }};"
