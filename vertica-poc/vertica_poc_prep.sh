@@ -240,6 +240,12 @@ systemctl restart network && systemctl restart firewalld
 ### Set up DNS services
 ######################################################################
 
+# Disable SELinux (it's a PoC and messes with logging DNS queries)
+setenforce 0
+echo 0 > /sys/fs/selinux/enforce
+getenforce
+sed -i "s/SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
+
 # Install dnsmasq and bind-utils (or equivalent)
 dnf install -y $DNSPKG
 
@@ -256,6 +262,11 @@ domain-needed
 bogus-priv
 no-resolv
 no-poll
+log-queries
+bind-interfaces
+interface=${PUBL_NDEV}
+interface=${PRIV_NDEV}
+interface=${DATA_NDEV}
 server=/${LAB_DOM}/127.0.0.1
 server=/${POC_DOM}/${POC_DNS}
 server=8.8.8.8
@@ -266,6 +277,7 @@ server=/${LAB_RDNS_DATA}/127.0.0.1
 local=/${LAB_DOM}/
 expand-hosts
 domain=${LAB_DOM}
+log-facility=/var/log/dnsmasq.log
 _EOF_
 
 # Generate new /etc/hosts file for dnsmasq
@@ -289,6 +301,7 @@ _EOF_
 
 ### Test config file syntax, allow in firewall and start the service
 dnsmasq --test
+systemctl stop dnsmasq
 systemctl start dnsmasq
 systemctl enable dnsmasq
 systemctl status dnsmasq
